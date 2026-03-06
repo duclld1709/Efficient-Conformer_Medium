@@ -75,10 +75,10 @@
         "eval_label_max_length": null,
 
         "training_dataset": "ViMDCached",
-        "training_dataset_path": "D:/Duc_Data/Study/FPT_University_Course/SPRING26_Semester_7/DAT301/code/review_research/conformer+LSTM/EfficientConformerVietnamese/feature_cached_medium",
+        "training_dataset_path": "/kaggle/input/datasets/ilewanducki/efficient-conformer-medium-features/feature_cached_medium",
 
         "evaluation_dataset": "ViMDCached",
-        "evaluation_dataset_path": "D:/Duc_Data/Study/FPT_University_Course/SPRING26_Semester_7/DAT301/code/review_research/conformer+LSTM/EfficientConformerVietnamese/feature_cached_medium",
+        "evaluation_dataset_path": "/kaggle/input/datasets/ilewanducki/efficient-conformer-medium-features/feature_cached_medium",
 
         "dataset_params": {
             "local_data_dir": "D:/hf_datasets/hub/datasets--nguyendv02--ViMD_Dataset/snapshots/3a5b30157034e7eadd5c75fae1a820c6f9383398/data",
@@ -110,3 +110,4 @@
         "lm_tmp": 1
     }
 }
+
