@@ -53,7 +53,7 @@
 
     "training_params":
     {
-        "epochs": 10,
+        "epochs": 50,
         "batch_size": 8,
         "accumulated_steps": 4,
         "mixed_precision": true,
@@ -66,7 +66,7 @@
 
         "lr_schedule": "Transformer",
         "schedule_dim": 360,
-        "warmup_steps": 10000,
+        "warmup_steps": 4600,
         "K": 2,
 
         "train_audio_max_length": 256000,
@@ -110,6 +110,7 @@
         "lm_tmp": 1
     }
 }
+
 
 
 
