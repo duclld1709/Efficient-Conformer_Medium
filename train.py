@@ -12,6 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Wandb
+import wandb
+
+run_name = "e-conformer-finetune-v1"
+
+wandb.init(
+    project="conformer",
+    entity="dat301_ai1802",
+    name=run_name,
+    config={
+        "model": "EfficientConformer",
+        "experiment": "finetune",
+        "run_name": run_name
+    }
+)
+
 # Pytorch
 import torch
 
@@ -209,5 +225,6 @@ if __name__ == "__main__":
         torch.multiprocessing.spawn(main, nprocs=args.world_size, args=(args,))  
     else:
         main(0, args)
+
 
 
