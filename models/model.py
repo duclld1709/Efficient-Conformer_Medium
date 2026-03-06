@@ -32,6 +32,7 @@ from tqdm import tqdm
 import jiwer
 import os
 import time
+import json
 
 def sample_synaptic_noise(m, distributed):
 
@@ -209,6 +210,22 @@ class Model(nn.Module):
 
             writer = None
 
+        # Best test checkpoint tracking
+        best_test_loss = float("inf")
+        best_test_epoch = None
+        best_checkpoint_path = os.path.join(callback_path, "checkpoints_best.ckpt") if callback_path else None
+        best_metrics_path = os.path.join(callback_path, "best_checkpoint_metrics.json") if callback_path else None
+
+        if self.rank == 0 and best_metrics_path and os.path.isfile(best_metrics_path):
+            try:
+                with open(best_metrics_path, "r") as metrics_file:
+                    best_metrics = json.load(metrics_file)
+                best_test_loss = float(best_metrics.get("best_test_loss", float("inf")))
+                best_test_epoch = best_metrics.get("best_epoch")
+                print("Loaded best checkpoint metadata: epoch {} - test loss {:.4f}".format(best_test_epoch, best_test_loss))
+            except Exception as metadata_error:
+                print("Warning: failed to load best checkpoint metadata ({}). Start with fresh best tracking.".format(metadata_error))
+
         # Sample Synaptic Noise
         if self.vn_start_step is not None:
             if self.scheduler.model_step >= self.vn_start_step:
@@ -312,54 +329,92 @@ class Model(nn.Module):
                         "epoch": epoch + 1
                     })
 
-                # Validation
+                # Test evaluation
                 if (epoch + 1) % val_period == 0:
 
-                    # Validation Dataset
+                    # Evaluation Dataset (used as test set during training)
                     if dataset_val:
 
-                        # Multiple Validation Datasets
+                        # Multiple Evaluation Datasets
                         if isinstance(dataset_val, dict):
 
                             for dataset_name, dataset in dataset_val.items():
 
                                 # Evaluate
-                                wer, truths, preds, val_loss = self.evaluate(dataset, val_steps, verbose_val, eval_loss=True)
+                                wer, truths, preds, test_loss = self.evaluate(dataset, val_steps, verbose_val, eval_loss=True)
+                                test_loss_value = test_loss.item() if torch.is_tensor(test_loss) else float(test_loss)
 
                                 # Print wer
                                 if self.rank == 0:
-                                    print("{} wer : {:.2f}% - loss : {:.4f}".format(dataset_name, 100 * wer, val_loss))
+                                    print("{} test wer : {:.2f}% - test loss : {:.4f}".format(dataset_name, 100 * wer, test_loss_value))
                                     wandb.log({
-                                        "val_wer": 100 * wer,
-                                        "val_loss": val_loss,
+                                        "test_wer": 100 * wer,
+                                        "test_loss": test_loss_value,
                                         "epoch": epoch + 1
                                     })
 
-                                # Logs Validation
+                                # Logs Test
                                 if self.rank == 0 and writer is not None:
-                                    writer.add_scalar('Validation/WER/{}'.format(dataset_name), 100 * wer, epoch + 1)
-                                    writer.add_scalar('Validation/MeanLoss/{}'.format(dataset_name), val_loss, epoch + 1)
-                                    writer.add_text('Validation/Predictions/{}'.format(dataset_name), "GroundTruth : " + truths[0] + " / Prediction : " + preds[0], epoch + 1)
+                                    writer.add_scalar('Test/WER/{}'.format(dataset_name), 100 * wer, epoch + 1)
+                                    writer.add_scalar('Test/MeanLoss/{}'.format(dataset_name), test_loss_value, epoch + 1)
+                                    writer.add_text('Test/Predictions/{}'.format(dataset_name), "GroundTruth : " + truths[0] + " / Prediction : " + preds[0], epoch + 1)
+
+                                # Best checkpoint update
+                                if callback_path and self.rank == 0 and test_loss_value < best_test_loss:
+                                    best_test_loss = test_loss_value
+                                    best_test_epoch = epoch + 1
+                                    self.save(best_checkpoint_path)
+                                    if best_metrics_path:
+                                        with open(best_metrics_path, "w") as metrics_file:
+                                            json.dump({
+                                                "best_epoch": best_test_epoch,
+                                                "best_test_loss": best_test_loss
+                                            }, metrics_file, indent=2)
+                                    print("Updated best checkpoint at epoch {} with test loss {:.4f}".format(best_test_epoch, best_test_loss))
+                                    wandb.log({
+                                        "best_test_loss": best_test_loss,
+                                        "best_checkpoint_epoch": best_test_epoch,
+                                        "epoch": epoch + 1
+                                    })
 
                         else:
 
                             # Evaluate
-                            wer, truths, preds, val_loss = self.evaluate(dataset_val, val_steps, verbose_val, eval_loss=True)
+                            wer, truths, preds, test_loss = self.evaluate(dataset_val, val_steps, verbose_val, eval_loss=True)
+                            test_loss_value = test_loss.item() if torch.is_tensor(test_loss) else float(test_loss)
 
                             # Print wer
                             if self.rank == 0:
-                                print("Val wer : {:.2f}% - Val loss : {:.4f}".format(100 * wer, val_loss))
+                                print("Test wer : {:.2f}% - Test loss : {:.4f}".format(100 * wer, test_loss_value))
                                 wandb.log({
-                                    "val_wer": 100 * wer,
-                                    "val_loss": val_loss,
+                                    "test_wer": 100 * wer,
+                                    "test_loss": test_loss_value,
                                     "epoch": epoch + 1
                                 })
 
-                            # Logs Validation
+                            # Logs Test
                             if self.rank == 0 and writer is not None:
-                                writer.add_scalar('Validation/WER', 100 * wer, epoch + 1)
-                                writer.add_scalar('Validation/MeanLoss', val_loss, epoch + 1)
-                                writer.add_text('Validation/Predictions', "GroundTruth : " + truths[0] + " / Prediction : " + preds[0], epoch + 1)
+                                writer.add_scalar('Test/WER', 100 * wer, epoch + 1)
+                                writer.add_scalar('Test/MeanLoss', test_loss_value, epoch + 1)
+                                writer.add_text('Test/Predictions', "GroundTruth : " + truths[0] + " / Prediction : " + preds[0], epoch + 1)
+
+                            # Best checkpoint update
+                            if callback_path and self.rank == 0 and test_loss_value < best_test_loss:
+                                best_test_loss = test_loss_value
+                                best_test_epoch = epoch + 1
+                                self.save(best_checkpoint_path)
+                                if best_metrics_path:
+                                    with open(best_metrics_path, "w") as metrics_file:
+                                        json.dump({
+                                            "best_epoch": best_test_epoch,
+                                            "best_test_loss": best_test_loss
+                                        }, metrics_file, indent=2)
+                                print("Updated best checkpoint at epoch {} with test loss {:.4f}".format(best_test_epoch, best_test_loss))
+                                wandb.log({
+                                    "best_test_loss": best_test_loss,
+                                    "best_checkpoint_epoch": best_test_epoch,
+                                    "epoch": epoch + 1
+                                })
 
                 # Saving Checkpoint
                 if (epoch + 1) % saving_period == 0:

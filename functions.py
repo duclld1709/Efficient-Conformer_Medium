@@ -114,7 +114,7 @@ def load_datasets(training_params, tokenizer_params, args):
         "Vietnamese": {
             "class": VietnameseDataset,
             "split": {
-                "training": "val",
+                "training": "test",
                 "validation": "val",
                 "test": "test",
             }
@@ -122,7 +122,7 @@ def load_datasets(training_params, tokenizer_params, args):
         "ViMD": {
             "class": ViMDDataset,
             "split": {
-                "training": "valid",
+                "training": "test",
                 "validation": "valid",
                 "test": "test",
             }
@@ -130,7 +130,7 @@ def load_datasets(training_params, tokenizer_params, args):
         "ViMDCached": {
             "class": CachedFeatureDataset,
             "split": {
-                "training": "valid",
+                "training": "test",
                 "validation": "valid",
                 "test": "test",
             }

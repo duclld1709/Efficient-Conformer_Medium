@@ -110,7 +110,14 @@ def main(rank, args):
         model.parallel_strategy()
 
     # Load Dataset
-    dataset_train, dataset_val = load_datasets(config["training_params"], config["tokenizer_params"], args)
+    dataset_train, dataset_eval = load_datasets(config["training_params"], config["tokenizer_params"], args)
+    dataset_test = dataset_eval
+    dataset_valid = None
+
+    if args.mode.split("-")[0] == "training":
+        valid_args = argparse.Namespace(**vars(args))
+        valid_args.mode = "validation"
+        _, dataset_valid = load_datasets(config["training_params"], config["tokenizer_params"], valid_args)
 
     ###############################################################################
     # Modes
@@ -126,7 +133,7 @@ def main(rank, args):
 
         model.fit(dataset_train, 
             config["training_params"]["epochs"], 
-            dataset_val=dataset_val, 
+            dataset_val=dataset_test, 
             val_steps=args.val_steps, 
             verbose_val=args.verbose_val, 
             initial_epoch=int(args.initial_epoch), 
@@ -137,46 +144,92 @@ def main(rank, args):
             saving_period=args.saving_period,
             val_period=args.val_period)
 
+        # Final validation is run once with the best checkpoint selected on test loss
+        if dataset_valid is not None:
+            callback_path = config["training_params"]["callback_path"]
+            best_checkpoint_path = callback_path + "checkpoints_best.ckpt"
+            best_metrics_path = callback_path + "best_checkpoint_metrics.json"
+
+            if args.distributed:
+                torch.distributed.barrier()
+
+            if os.path.isfile(best_checkpoint_path):
+                model.load(best_checkpoint_path)
+                if args.rank == 0:
+                    print("Loaded best checkpoint for final validation:", best_checkpoint_path)
+            elif args.rank == 0:
+                print("Best checkpoint not found at {}. Using current model for final validation.".format(best_checkpoint_path))
+
+            valid_wer, _, _, valid_loss = model.evaluate(dataset_valid, eval_steps=args.val_steps, verbose=args.verbose_val, beam_size=1, eval_loss=True)
+            valid_loss_value = valid_loss.item() if torch.is_tensor(valid_loss) else float(valid_loss)
+
+            if args.rank == 0:
+                print("Valid wer : {:.2f}% - Valid loss : {:.4f}".format(100 * valid_wer, valid_loss_value))
+                valid_log = {
+                    "valid_wer": 100 * valid_wer,
+                    "valid_loss": valid_loss_value,
+                    "epoch": config["training_params"]["epochs"]
+                }
+
+                if os.path.isfile(best_metrics_path):
+                    with open(best_metrics_path, "r") as best_metrics_file:
+                        best_metrics = json.load(best_metrics_file)
+                    valid_log["best_checkpoint_epoch"] = best_metrics.get("best_epoch")
+                    valid_log["best_test_loss"] = best_metrics.get("best_test_loss")
+
+                wandb.log(valid_log)
+
     # Evaluation
     elif args.mode.split("-")[0] == "validation" or args.mode.split("-")[0] == "test":
+        eval_split = args.mode.split("-")[0]
+        eval_prefix = "valid" if eval_split == "validation" else "test"
 
         # Gready Search Evaluation
         if args.gready or model.beam_size is None:
 
             if args.rank == 0:
                 print("Gready Search Evaluation")
-            wer, _, _, _ = model.evaluate(dataset_val, eval_steps=args.val_steps, verbose=args.verbose_val, beam_size=1, eval_loss=args.eval_loss)
+            wer, _, _, loss = model.evaluate(dataset_eval, eval_steps=args.val_steps, verbose=args.verbose_val, beam_size=1, eval_loss=args.eval_loss)
             
             if args.rank == 0:
                 print("Geady Search WER : {:.2f}%".format(100 * wer))
+                log_payload = {
+                    "{}_wer".format(eval_prefix): 100 * wer
+                }
+                if loss is not None:
+                    log_payload["{}_loss".format(eval_prefix)] = loss.item() if torch.is_tensor(loss) else float(loss)
+                wandb.log(log_payload)
         
         # Beam Search Evaluation
         else:
 
             if args.rank == 0:
                 print("Beam Search Evaluation")
-            wer, _, _, _ = model.evaluate(dataset_val, eval_steps=args.val_steps, verbose=args.verbose_val, beam_size=model.beam_size, eval_loss=False)
+            wer, _, _, _ = model.evaluate(dataset_eval, eval_steps=args.val_steps, verbose=args.verbose_val, beam_size=model.beam_size, eval_loss=False)
             
             if args.rank == 0:
                 print("Beam Search WER : {:.2f}%".format(100 * wer))
+                wandb.log({
+                    "{}_wer".format(eval_prefix): 100 * wer
+                })
     
     # Eval Time
     elif args.mode.split("-")[0] == "eval_time":
 
         print("Model Eval Time")
-        inf_time = model.eval_time(dataset_val, eval_steps=args.val_steps, beam_size=1, rnnt_max_consec_dec_steps=args.rnnt_max_consec_dec_steps, profiler=args.profiler)
+        inf_time = model.eval_time(dataset_eval, eval_steps=args.val_steps, beam_size=1, rnnt_max_consec_dec_steps=args.rnnt_max_consec_dec_steps, profiler=args.profiler)
         print("eval time : {:.2f}s".format(inf_time))
 
     elif args.mode.split("-")[0] == "eval_time_encoder":
 
         print("Encoder Eval Time")
-        enc_time = model.eval_time_encoder(dataset_val, eval_steps=args.val_steps, profiler=args.profiler)
+        enc_time = model.eval_time_encoder(dataset_eval, eval_steps=args.val_steps, profiler=args.profiler)
         print("eval time : {:.2f}s".format(enc_time))
 
     elif args.mode.split("-")[0] == "eval_time_decoder":
 
         print("Decoder Eval Time")
-        dec_time = model.eval_time_decoder(dataset_val, eval_steps=args.val_steps, profiler=args.profiler)
+        dec_time = model.eval_time_decoder(dataset_eval, eval_steps=args.val_steps, profiler=args.profiler)
         print("eval time : {:.2f}s".format(dec_time))
 
     # Destroy Process Group
