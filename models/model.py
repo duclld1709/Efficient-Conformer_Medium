@@ -529,7 +529,7 @@ class Model(nn.Module):
         if total_wer / (eval_steps if eval_steps is not None else dataset_eval.__len__()) > 1:
             wer = 1
         else:
-            wer = jiwer.wer(speech_true, speech_pred, standardize=True)
+            wer = jiwer.wer(speech_true, speech_pred)
 
         # Compute loss
         if eval_loss:
@@ -796,6 +796,7 @@ class Model(nn.Module):
         })
         # Return Eval Time in s
         return timer
+
 
 
 
