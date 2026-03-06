@@ -439,17 +439,26 @@ class Model(nn.Module):
                     outputs_true.append(self.tokenizer.decode(list(t)))
 
             # Compute Batch wer and Update total wer
-            batch_wer = jiwer.wer(outputs_true, outputs_pred)
+            batch_wer = jiwer.wer(outputs_true, outputs_pred, standardize=True)
             total_wer += batch_wer
 
             # Update String lists
             speech_true += outputs_true
             speech_pred += outputs_pred
 
-            # Prediction Verbose
-            if verbose:
-                print("Groundtruths :\n", outputs_true)
-                print("Predictions :\n", outputs_pred)
+            # # Prediction Verbose
+            # if verbose and self.rank == 0:
+
+            #     n = min(3, len(outputs_true))
+
+            #     print("\n===== SAMPLE PREDICTIONS =====")
+
+            #     for i in range(n):
+            #         print(f"\nSample {i+1}")
+            #         print("GT  :", outputs_true[i])
+            #         print("PRD :", outputs_pred[i])
+
+            #     print("==============================\n")
 
             # Eval Loss
             if eval_loss:
@@ -502,6 +511,20 @@ class Model(nn.Module):
         # Compute loss
         if eval_loss:
             loss = total_loss / (eval_steps if eval_steps is not None else dataset_eval.__len__())
+
+        # Print sample predictions after evaluation
+        if verbose and self.rank == 0:
+
+            print("\n===== SAMPLE PREDICTIONS =====")
+
+            n = min(3, len(speech_true))
+
+            for i in range(n):
+                print(f"\nSample {i+1}")
+                print("GT  :", speech_true[i])
+                print("PRD :", speech_pred[i])
+
+            print("==============================\n")
 
         # Return word error rate, groundtruths and predictions
         return wer, speech_true, speech_pred, loss if eval_loss else None
@@ -741,6 +764,7 @@ class Model(nn.Module):
 
         # Return Eval Time in s
         return timer
+
 
 
 
