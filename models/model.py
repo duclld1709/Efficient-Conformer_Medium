@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Wandb
+import wandb
+
 # PyTorch
 import torch
 import torch.nn as nn
@@ -281,6 +284,12 @@ class Model(nn.Module):
 
                     # Logs Step
                     if self.rank == 0 and writer is not None and (step + 1) % 10 == 0:
+                        wandb.log({
+                            "train_loss": loss_mini.item(),
+                            "learning_rate": self.optimizer.param_groups[0]['lr'],
+                            "step": self.scheduler.model_step,
+                            "epoch": epoch + 1
+                        })
                         writer.add_scalar('Training/Loss', loss_mini, self.scheduler.model_step)
                         writer.add_scalar('Training/LearningRate',  self.optimizer.param_groups[0]['lr'], self.scheduler.model_step)
 
@@ -298,6 +307,10 @@ class Model(nn.Module):
                 # Logs Epoch
                 if self.rank == 0 and writer is not None:
                     writer.add_scalar('Training/MeanLoss', epoch_loss / (steps_per_epoch * accumulated_steps if steps_per_epoch is not None else dataset_train.__len__()),  epoch + 1)
+                    wandb.log({
+                        "train_epoch_loss": (epoch_loss / (steps_per_epoch * accumulated_steps if steps_per_epoch is not None else dataset_train.__len__())),
+                        "epoch": epoch + 1
+                    })
 
                 # Validation
                 if (epoch + 1) % val_period == 0:
@@ -316,6 +329,11 @@ class Model(nn.Module):
                                 # Print wer
                                 if self.rank == 0:
                                     print("{} wer : {:.2f}% - loss : {:.4f}".format(dataset_name, 100 * wer, val_loss))
+                                    wandb.log({
+                                        "val_wer": 100 * wer,
+                                        "val_loss": val_loss,
+                                        "epoch": epoch + 1
+                                    })
 
                                 # Logs Validation
                                 if self.rank == 0 and writer is not None:
@@ -331,6 +349,11 @@ class Model(nn.Module):
                             # Print wer
                             if self.rank == 0:
                                 print("Val wer : {:.2f}% - Val loss : {:.4f}".format(100 * wer, val_loss))
+                                wandb.log({
+                                    "val_wer": 100 * wer,
+                                    "val_loss": val_loss,
+                                    "epoch": epoch + 1
+                                })
 
                             # Logs Validation
                             if self.rank == 0 and writer is not None:
@@ -660,6 +683,9 @@ class Model(nn.Module):
         # Profiler Print
         if profiler:
             print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
+        wandb.log({
+            "inference_time": timer
+        })
 
         # Return Eval Time in s
         return timer
@@ -709,7 +735,10 @@ class Model(nn.Module):
         # Profiler Print
         if profiler:
             print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-
+            
+        wandb.log({
+            "encoder_time": timer
+        })
         # Return Eval Time in s
         return timer
 
@@ -761,9 +790,13 @@ class Model(nn.Module):
         # Profiler Print
         if profiler:
             print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
-
+            
+        wandb.log({
+            "decoder_time": timer
+        })
         # Return Eval Time in s
         return timer
+
 
 
 
