@@ -178,7 +178,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--initial_epoch",        type=str,   default=None, help="Load model from checkpoint")
     parser.add_argument("--initial_epoch_lm",           type=str,   default=None,                                       help="Load language model from checkpoint")
     parser.add_argument("--initial_epoch_encoder",      type=str,   default=None,                                       help="Load model encoder from encoder checkpoint")
-    parser.add_argument("-j", "--num_workers",          type=int,   default=8,                                          help="Number of data loading workers")
+    parser.add_argument("-j", "--num_workers",          type=int,   default=2,                                          help="Number of data loading workers")
     parser.add_argument("--create_tokenizer",           action="store_true",                                            help="Create model tokenizer")
     parser.add_argument("--batch_size_eval",            type=int,   default=4,                                          help="Evaluation batch size")
     parser.add_argument("--verbose_val",                action="store_true",                                            help="Evaluation verbose")
@@ -209,4 +209,5 @@ if __name__ == "__main__":
         torch.multiprocessing.spawn(main, nprocs=args.world_size, args=(args,))  
     else:
         main(0, args)
+
 
