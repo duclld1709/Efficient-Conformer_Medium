@@ -1,0 +1,10 @@
+tqdm
+sentencepiece
+jiwer<=2.4
+tensorboard
+https://github.com/kpu/kenlm/archive/master.zip
+six
+datasets
+soundfile
+pyarrow
+# warp_rnnt
