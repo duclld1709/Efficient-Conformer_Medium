@@ -1,6 +1,6 @@
 tqdm
 sentencepiece
-jiwer<=2.4
+jiwer>=3.0
 tensorboard
 https://github.com/kpu/kenlm/archive/master.zip
 six
@@ -8,3 +8,4 @@ datasets
 soundfile
 pyarrow
 # warp_rnnt
+flashlight-text
