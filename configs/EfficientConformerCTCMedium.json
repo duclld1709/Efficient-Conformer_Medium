@@ -54,7 +54,7 @@
     "training_params":
     {
         "epochs": 3,
-        "batch_size": 12,
+        "batch_size": 8,
         "accumulated_steps": 4,
         "mixed_precision": true,
 
@@ -110,6 +110,7 @@
         "lm_tmp": 1
     }
 }
+
 
 
 
