@@ -439,7 +439,7 @@ class Model(nn.Module):
                     outputs_true.append(self.tokenizer.decode(list(t)))
 
             # Compute Batch wer and Update total wer
-            batch_wer = jiwer.wer(outputs_true, outputs_pred, standardize=True)
+            batch_wer = jiwer.wer(outputs_true, outputs_pred)
             total_wer += batch_wer
 
             # Update String lists
@@ -741,5 +741,6 @@ class Model(nn.Module):
 
         # Return Eval Time in s
         return timer
+
 
 
