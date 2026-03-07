@@ -66,6 +66,15 @@ class LossCTC(nn.Module):
         # Unpack Predictions
         outputs_pred, f_len, _ = pred
 
+        # ===== DEBUG =====
+        if torch.rand(1).item() < 0.01:  # tránh spam log
+            print("\n===== CTC DEBUG =====")
+            print("encoder_len:", f_len[:10].tolist())
+            print("target_len :", y_len[:10].tolist())
+            print("avg encoder len:", f_len.float().mean().item())
+            print("avg target len :", y_len.float().mean().item())
+            print("=====================\n")
+
         # Compute Loss
         loss = self.loss(
              log_probs=torch.nn.functional.log_softmax(outputs_pred, dim=-1).transpose(0, 1),
