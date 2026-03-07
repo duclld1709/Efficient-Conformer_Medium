@@ -15,19 +15,6 @@
 # Wandb
 import wandb
 
-run_name = "e-conformer-finetune-v1"
-
-wandb.init(
-    project="conformer",
-    entity="dat301_ai1802",
-    name=run_name,
-    config={
-        "model": "EfficientConformer",
-        "experiment": "finetune",
-        "run_name": run_name
-    }
-)
-
 # Pytorch
 import torch
 
@@ -49,6 +36,21 @@ def main(rank, args):
     if args.distributed:
         torch.cuda.set_device(args.rank)
         torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=args.world_size, rank=args.rank)
+        
+    # WandB init
+    if args.rank == 0:
+        run_name = "e-conformer-finetune-v1"
+
+        wandb.init(
+            project="conformer",
+            entity="dat301_ai1802",
+            name=run_name,
+            config={
+                "model": "EfficientConformer",
+                "experiment": "finetune",
+                "run_name": run_name
+            }
+        )
 
     # Load Config
     with open(args.config_file) as json_config:
@@ -278,6 +280,7 @@ if __name__ == "__main__":
         torch.multiprocessing.spawn(main, nprocs=args.world_size, args=(args,))  
     else:
         main(0, args)
+
 
 
 
