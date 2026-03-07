@@ -46,7 +46,7 @@ class ModelCTC(Model):
             raise Exception("Unknown encoder architecture:", encoder_params["arch"])
 
         # FC Layer
-        self.fc = nn.Linear(encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"], tokenizer_params["vocab_size"])
+        self.fc = nn.Linear(encoder_params["dim_model"][-1] if isinstance(encoder_params["dim_model"], list) else encoder_params["dim_model"], tokenizer_params["vocab_size"]+1)
 
         # Criterion
         self.criterion = LossCTC()
@@ -106,34 +106,30 @@ class ModelCTC(Model):
         batch_pred_list = []
 
         # Batch loop
+        blank_id = self.tokenizer.vocab_size()
+
         for b in range(logits.size(0)):
 
-            # Blank
             blank = False
-
-            # Pred List
             pred_list = []
 
-            # Decoding Loop
             for t in range(logits_len[b]):
 
-                # Blank Prediction
-                if preds[b, t] == 0:
+                p = preds[b, t].item()
+
+                # skip blank
+                if p == blank_id:
                     blank = True
                     continue
 
-                # First Prediction
                 if len(pred_list) == 0:
-                    pred_list.append(preds[b, t].item())
+                    pred_list.append(p)
 
-                # New Prediction
-                elif pred_list[-1] != preds[b, t] or blank:
-                    pred_list.append(preds[b, t].item())
-                
-                # Update Blank
+                elif pred_list[-1] != p or blank:
+                    pred_list.append(p)
+
                 blank = False
 
-            # Append Sequence
             batch_pred_list.append(pred_list)
 
         # Decode Sequences

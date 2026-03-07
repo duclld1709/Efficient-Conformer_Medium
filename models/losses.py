@@ -51,7 +51,7 @@ class LossCTC(nn.Module):
         super(LossCTC, self).__init__()
 
         # CTC Loss
-        self.loss = nn.CTCLoss(blank=0, reduction="none", zero_infinity=True)
+        self.loss = nn.CTCLoss(blank=1024, reduction="none", zero_infinity=True)
 
     def forward(self, batch, pred):
 
@@ -66,15 +66,26 @@ class LossCTC(nn.Module):
         # Unpack Predictions
         outputs_pred, f_len, _ = pred
 
-        # ===== DEBUG =====
-        if torch.rand(1).item() < 0.01:  # tránh spam log
+        if torch.rand(1).item() < 0.01:
             print("\n===== CTC DEBUG =====")
             print("encoder_len:", f_len[:10].tolist())
             print("target_len :", y_len[:10].tolist())
             print("avg encoder len:", f_len.float().mean().item())
             print("avg target len :", y_len.float().mean().item())
-            print("=====================\n")
 
+            with torch.no_grad():
+                preds = outputs_pred.argmax(-1)
+
+                mask = torch.arange(preds.size(1), device=preds.device)[None, :] < f_len[:, None]
+                blank_ratio = ((preds == 1024) & mask).float().sum() / mask.float().sum()
+
+                probs = torch.softmax(outputs_pred, dim=-1)
+                max_prob = probs.max(-1)[0].mean()
+
+                print("blank ratio:", blank_ratio.item())
+                print("mean max prob:", max_prob.item())
+
+            print("=====================\n")
         # Compute Loss
         loss = self.loss(
              log_probs=torch.nn.functional.log_softmax(outputs_pred, dim=-1).transpose(0, 1),

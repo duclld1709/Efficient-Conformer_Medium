@@ -599,8 +599,8 @@ class Model(nn.Module):
 
             for i in range(n):
                 print(f"\nSample {i+1}")
-                print("GT  :", speech_true[i])
-                print("PRD :", speech_pred[i])
+                print(f"GT  : '{speech_true[i]}'")
+                print(f"PRD  : '{speech_pred[i]}'")
 
             print("==============================\n")
 

@@ -15,11 +15,34 @@ print(f"Ký tự (token) cuối cùng trong vocab là: '{last_token}'")
 
 print("--- 10 token đầu tiên trong vocab ---")
 for i in range(10):
-    print(f"Index {i}: {sp.id_to_piece(i)}")
+    print(f"Index {i}: '{sp.id_to_piece(i)}'")
 
 print(f"--- 10 token cuối cùng trong bộ từ điển (Tổng size: {vocab_size}) ---")
 
 # Duyệt từ index (vocab_size - 10) đến (vocab_size - 1)
-for i in range(vocab_size - 10, vocab_size):
+for i in range(0, vocab_size):
     token = sp.id_to_piece(i)
     print(f"Index {i}: '{token}'")
+
+# TEST TOKENIZER
+# =============================
+
+text = "hôm nay tôi đang học mô hình nhận dạng tiếng nói"
+
+print("\n===== TEST TOKENIZER =====")
+print("Input text:", text)
+
+# Encode -> token pieces
+pieces = sp.encode(text, out_type=str)
+print("\nToken pieces:")
+print(pieces)
+
+# Encode -> token ids
+ids = sp.encode(text, out_type=int)
+print("\nToken IDs:")
+print(ids)
+
+# Decode lại
+decoded = sp.decode(ids)
+print("\nDecoded text:")
+print(decoded)
